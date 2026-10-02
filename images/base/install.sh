@@ -26,3 +26,4 @@ groupadd -g 1000 runner
 useradd -u 1000 -g 1000 -s /bin/bash -d /runner runner
 mkdir /runner
 chown runner:runner /runner
+chown -R runner:runner /opt/gha

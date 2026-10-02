@@ -27,6 +27,7 @@ async fn main() -> Result<(), ErrorContext> {
                 .map(ToString::to_string)
                 .collect::<Vec<_>>(),
         )
+        .work_folder("/runner")
         .send()
         .await
         .context("Failed to create jit runner")?;
