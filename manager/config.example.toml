@@ -1,0 +1,18 @@
+[app]
+app_id = "2137"
+installation_id = "1337"
+org_name = "Solvro"
+private_key = """
+-----BEGIN RSA PRIVATE KEY-----
+rsa key contents would be here if this
+was an actual private key (which it is not)
+-----END RSA PRIVATE KEY-----
+"""
+
+[[groups]]
+runner_name_prefix = "test-runner"
+hostname_prefix = "test-runner"
+labels = ["test-runner"]
+group_id = "3"
+max_runners = 1
+image = "localhost/github-runner-base:latest"
