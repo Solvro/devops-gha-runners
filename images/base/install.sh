@@ -20,6 +20,7 @@ mkdir -p /opt/gha
 cd /opt/gha
 tar -xf /tmp/runner.tar.gz
 cp /ctx/entrypoint.sh /entrypoint.sh
+cp /ctx/pre_job.sh /pre_job.sh
 
 # create user
 groupadd -g 1000 runner
