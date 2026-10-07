@@ -1,7 +1,8 @@
+# credentials for the github app
 [app]
+org_name = "Solvro"
 app_id = "2137"
 installation_id = "1337"
-org_name = "Solvro"
 private_key = """
 -----BEGIN RSA PRIVATE KEY-----
 rsa key contents would be here if this
@@ -9,10 +10,23 @@ was an actual private key (which it is not)
 -----END RSA PRIVATE KEY-----
 """
 
+# manager global configuration
+[program]
+# a directory where unlinked temporary credential passing files should be created
+tmp_dir = "/tmp"
+
+# runner group configuration
 [[groups]]
+# name prefixes for github & container names
 runner_name_prefix = "test-runner"
 hostname_prefix = "test-runner"
+# runner labels for github
 labels = ["test-runner"]
+# group under which the runner should be created
 group_id = "3"
+# how many runners should be running at once?
 max_runners = 1
+# image to use for runners
 image = "localhost/github-runner-base:latest"
+# additional options for podman run
+additional_options = ["--net", "test-net"]

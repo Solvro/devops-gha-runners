@@ -1,6 +1,7 @@
 use cloneable_errors::{ErrorContext, ResContext};
+use tokio::io::AsyncReadExt;
 
-use crate::utils::generate_runner_name;
+use crate::utils::{create_runner, generate_runner_name};
 
 mod config;
 mod utils;
@@ -32,7 +33,27 @@ async fn main() -> Result<(), ErrorContext> {
         .await
         .context("Failed to create jit runner")?;
 
-    println!("{}", resp.encoded_jit_config);
+    let mut runner = create_runner(
+        &config.program,
+        &config.groups[0],
+        &runner_name.hostname,
+        &resp.encoded_jit_config,
+    )
+    .await
+    .context("Failed to spawn the runner")?;
+    let mut buf = [0u8; 256];
+    let bytes_read = runner
+        .ready_signal_pipe
+        .read(&mut buf)
+        .await
+        .context("Failed to read from runner signal pipe")?;
+    let out = str::from_utf8(&buf[0..bytes_read]).context("Got non-utf8 bytes from proc")?;
+    println!("runner output: {out}");
+    runner
+        .process
+        .wait()
+        .await
+        .context("Error while waiting for proc")?;
 
     Ok(())
 }

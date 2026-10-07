@@ -1,4 +1,4 @@
-use std::{env, fs, sync::Arc};
+use std::{env, fs, path::Path, sync::Arc};
 
 use cloneable_errors::{ErrorContext, ResContext};
 use jsonwebtoken::EncodingKey;
@@ -11,6 +11,7 @@ use serde::{Deserialize, Deserializer, de::Visitor};
 #[derive(Deserialize)]
 pub struct Config {
     pub app: AppConfig,
+    pub program: ProgramConfig,
     pub groups: Arc<[GroupConfig]>,
 }
 
@@ -23,7 +24,12 @@ pub struct AppConfig {
     pub org_name: Arc<str>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
+pub struct ProgramConfig {
+    pub tmp_dir: Arc<Path>,
+}
+
+#[derive(Deserialize, Clone)]
 pub struct GroupConfig {
     pub runner_name_prefix: Arc<str>,
     pub hostname_prefix: Arc<str>,
@@ -31,6 +37,8 @@ pub struct GroupConfig {
     pub group_id: RunnerGroupId,
     pub max_runners: usize,
     pub image: Arc<str>,
+    #[serde(default)]
+    pub additional_options: Arc<[Box<str>]>,
 }
 
 fn deserialize_key<'de, D: Deserializer<'de>>(deserializer: D) -> Result<EncodingKey, D::Error> {
