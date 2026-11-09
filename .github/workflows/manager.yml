@@ -1,0 +1,56 @@
+name: Runner manager
+
+on:
+  push:
+    paths:
+      - "manager/**"
+      - ".github/workflows/manager.yml"
+    branches-ignore: ["gh-readonly-queue/**"]
+  pull_request:
+  merge_group:
+
+defaults:
+  run:
+    working-directory: manager
+
+jobs:
+  cargo-tests:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Lint with clippy
+        run: cargo clippy --locked --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --locked --all-features
+
+  bare-metal-build:
+    name: Build rust executable
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Upload artifact
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        env:
+          AWS_CREDS: ${{ secrets.MINIBOMBA_S3_ARTIFACTS_AWS_CONFIG }}
+        run: |
+          mkdir -p ~/.aws
+          echo "$AWS_CREDS" > ~/.aws/credentials
+          # yes, thats a hardcoded bucket name
+          # no, i do not care - it'll screw up the link if i make it a secret
+          ARTIFACT_URI="s3://solvro-artifacts/devops-gha-runners/manager/`date '+%Y%m%d-%H%M%S'`"
+          aws s3 cp target/release/devops-gha-manager "$ARTIFACT_URI"
+          # generate a presigned link, valid for 7 days
+          aws s3 presign --expires-in 604800 "$ARTIFACT_URI"
