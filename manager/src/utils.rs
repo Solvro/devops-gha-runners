@@ -1,4 +1,7 @@
-use std::os::{fd::AsRawFd, unix::fs::chown};
+use std::{
+    os::{fd::AsRawFd, unix::fs::chown},
+    process::Stdio,
+};
 
 use chrono::Utc;
 use cloneable_errors::{ErrorContext, ResContext};
@@ -146,7 +149,8 @@ pub async fn create_runner(
             &container_logdir_param,
             // use the image set by the group
             &*group.image,
-        ]);
+        ])
+        .stdout(Stdio::null());
     unsafe {
         command.pre_exec(move || {
             // dup the fds into place
