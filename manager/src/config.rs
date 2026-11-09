@@ -27,6 +27,9 @@ pub struct AppConfig {
 #[derive(Deserialize, Clone)]
 pub struct ProgramConfig {
     pub tmp_dir: Arc<Path>,
+    pub log_dir: Arc<Path>,
+    pub log_dir_owner_uid: u32,
+    pub log_dir_owner_gid: u32,
 }
 
 #[derive(Deserialize, Clone)]
@@ -36,9 +39,20 @@ pub struct GroupConfig {
     pub labels: Arc<[Box<str>]>,
     pub group_id: RunnerGroupId,
     pub max_runners: usize,
+    pub max_idle: usize,
     pub image: Arc<str>,
+    pub log_dir_uid: u32,
+    pub log_dir_gid: u32,
     #[serde(default)]
     pub additional_options: Arc<[Box<str>]>,
+    #[serde(skip, default)]
+    pub status: tokio::sync::watch::Sender<GroupStatus>,
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct GroupStatus {
+    pub total: usize,
+    pub idle: usize,
 }
 
 fn deserialize_key<'de, D: Deserializer<'de>>(deserializer: D) -> Result<EncodingKey, D::Error> {

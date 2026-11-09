@@ -14,6 +14,14 @@ was an actual private key (which it is not)
 [program]
 # a directory where unlinked temporary credential passing files should be created
 tmp_dir = "/tmp"
+# a directory where logs should be kept
+log_dir = "/var/log/gha"
+# uid/gid for created log directories
+# avoid setting this to 0, as this userid will be set on the mount idmap!
+# (could theoretically allow the runner to abuse root permissions on the filesystem)
+# this should ideally be a user dedicated to being the filesystem owner for runner log files
+log_dir_owner_uid = 2137
+log_dir_owner_gid = 2137
 
 # runner group configuration
 [[groups]]
@@ -25,8 +33,13 @@ labels = ["test-runner"]
 # group under which the runner should be created
 group_id = "3"
 # how many runners should be running at once?
-max_runners = 1
+max_runners = 3
+# how many runners should be waiting for new jobs?
+max_idle = 1
 # image to use for runners
 image = "localhost/github-runner-base:latest"
+# uid/gid inside the container to be allowed to write to the log dir (/opt/gha/_diag)
+log_dir_uid = 1000
+log_dir_gid = 1000
 # additional options for podman run
 additional_options = ["--net", "test-net"]

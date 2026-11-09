@@ -1,5 +1,6 @@
-use std::os::fd::AsRawFd;
+use std::os::{fd::AsRawFd, unix::fs::chown};
 
+use chrono::Utc;
 use cloneable_errors::{ErrorContext, ResContext};
 use tokio::{
     fs::File,
@@ -35,12 +36,55 @@ pub struct Runner {
     pub ready_signal_pipe: pipe::Receiver,
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn create_runner(
     program: &ProgramConfig,
     group: &GroupConfig,
     runner_name: &str,
     jit_token: &str,
 ) -> Result<Runner, ErrorContext> {
+    // prepare the logging directories
+    let time = Utc::now().format("%Y%m%d-%H%M%S");
+    let container_logfile = program.log_dir.join(format!("{time}-{runner_name}.log"));
+    let container_logdir = program.log_dir.join(format!("{time}-{runner_name}"));
+    tokio::fs::create_dir_all(&container_logdir)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to create the log directory {}",
+                container_logdir.display()
+            )
+        })?;
+    chown(
+        &container_logdir,
+        Some(program.log_dir_owner_uid),
+        Some(program.log_dir_owner_gid),
+    )
+    .with_context(|| {
+        format!(
+            "Failed to chown the log directory {} to {}:{}",
+            container_logdir.display(),
+            group.log_dir_uid,
+            group.log_dir_gid
+        )
+    })?;
+    let container_logfile_param = format!(
+        "path={}",
+        container_logfile
+            .to_str()
+            .context("container_logfile is not valid utf-8???")?
+    );
+    let container_logdir_param = format!(
+        "{}:/opt/gha/_diag:idmap=uids=@{}-{}-1;gids=@{}-{}-1",
+        container_logdir
+            .to_str()
+            .context("container_logdir is not valid utf-8???")?,
+        program.log_dir_owner_uid,
+        group.log_dir_uid,
+        program.log_dir_owner_gid,
+        group.log_dir_gid,
+    );
+
     // Prepare file descriptors to pass into the child proc
     //  -> set up the jit config temporary file
     let jit_file = {
@@ -92,6 +136,14 @@ pub async fn create_runner(
             // pass down fd 3 and 4
             "--preserve-fds",
             "2",
+            // log to file, not journald
+            "--log-driver",
+            "k8s-file",
+            "--log-opt",
+            &container_logfile_param,
+            // mount a log directory, with the proper idmaps
+            "-v",
+            &container_logdir_param,
             // use the image set by the group
             &*group.image,
         ]);
