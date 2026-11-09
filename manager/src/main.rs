@@ -162,7 +162,7 @@ async fn manage_runner_group(
         // wait for the amount of runners to be below target
         // we should never get Err from this, as we're actively holding the sender via group.status
         receiver
-            .wait_for(|status| status.idle > group.max_idle && status.total > group.max_runners)
+            .wait_for(|status| status.idle < group.max_idle && status.total < group.max_runners)
             .await
             .unwrap();
 
