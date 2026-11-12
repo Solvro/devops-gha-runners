@@ -4,12 +4,12 @@ use async_signal::{Signal, Signals};
 use cloneable_errors::{ErrorContext, ResContext};
 use futures_lite::StreamExt;
 use octocrab::{Octocrab, models::RunnerGroupId};
-use tokio::{io::AsyncReadExt, time::sleep};
+use tokio::{io::AsyncReadExt, select, time::sleep};
 use tracing::{error, info, warn};
 
 use crate::{
     config::GroupStatus,
-    utils::{create_runner, generate_runner_name},
+    utils::{create_runner, generate_runner_name, kill_runner},
 };
 
 mod config;
@@ -30,7 +30,12 @@ async fn artificial_delay(start_time: Instant) {
 ///
 /// the caller should increment the runner total and idle counts before calling this function
 #[allow(clippy::too_many_lines)]
-async fn spawn_runner(client: &Octocrab, config: &config::Config, group: &config::GroupConfig) {
+async fn spawn_runner(
+    client: &Octocrab,
+    config: &config::Config,
+    group: &config::GroupConfig,
+    mut guard: utils::CounterGuard,
+) {
     let start_time = Instant::now();
     let runner_name = generate_runner_name(group);
 
@@ -119,18 +124,44 @@ async fn spawn_runner(client: &Octocrab, config: &config::Config, group: &config
     // wait for the runner to signal to us that it has started a job
     {
         let mut buf = [0u8; 256];
+        let mut signal_subscriber = config.shutdown_requested.subscribe();
         // we kinda don't care about what the runner sends us
         // all that matters is that it sent *something*
-        if let Err(e) = runner.ready_signal_pipe.read(&mut buf).await {
-            // assume an error to read from the signal pipe means the worker has started a job
-            // ... or that it crashed (the result is the same)
-            warn!(
-                "Failed to read from signal pipe for runner {}: {e:?}",
-                runner_name.hostname
-            );
-        }
+        let mut should_kill = false;
+        select! {
+            piperes = runner.ready_signal_pipe.read(&mut buf) => {
+                if let Err(e) = piperes {
+                    // assume an error to read from the signal pipe means the worker has started a job
+                    // ... or that it crashed (the result is the same)
+                    warn!(
+                        "Failed to read from signal pipe for runner {}: {e:?}",
+                        runner_name.hostname
+                    );
+                }
+            },
+            // alternatively, we might get SIGINT/TERM'd instead
+            sigres = signal_subscriber.wait_for(Clone::clone) => {
+                if let Err(e) = sigres {
+                    warn!(
+                        "Got error while waiting for SIGINT/TERM in runner {}: {e:?}",
+                        runner_name.hostname
+                    );
+                }
+                should_kill = true;
+            }
+        };
         // drop le pipe (closing it)
         drop(runner.ready_signal_pipe);
+
+        // if we got sigterm'd, kill the runner
+        if should_kill && let Err(e) = kill_runner(&runner_name.hostname).await {
+            warn!("Failed to kill runner {}: {e:?}", runner_name.hostname);
+        }
+        // if we did not get sigterm'd, let this runner keep running in the background should we get
+        // sigterm'd later
+        if !should_kill {
+            guard.exclude();
+        }
     }
     info!("Runner {} picked up a job", runner_name.hostname);
     group.status.send_modify(|status| {
@@ -145,6 +176,8 @@ async fn spawn_runner(client: &Octocrab, config: &config::Config, group: &config
             runner_name.hostname
         );
     }
+    // prevent the server from quitting until we're done with cleanup
+    guard.include();
     info!("Runner {} finished a job", runner_name.hostname);
 
     // runner may have been terminated externally, check if it's been removed from github
@@ -184,13 +217,18 @@ async fn manage_runner_group(
     group: &'static config::GroupConfig,
 ) {
     let mut receiver = group.status.subscribe();
+    let mut quit_receiver = config.shutdown_requested.subscribe();
     loop {
-        // wait for the amount of runners to be below target
-        // we should never get Err from this, as we're actively holding the sender via group.status
-        receiver
-            .wait_for(|status| status.idle < group.max_idle && status.total < group.max_runners)
-            .await
-            .unwrap();
+        select! {
+            // wait for the amount of runners to be below target
+            // we should never get Err from this, as we're actively holding the sender via group.status
+            res = receiver
+                .wait_for(|status| status.idle < group.max_idle && status.total < group.max_runners)
+            => res.unwrap(),
+
+            // alternatively, we might get SIGTERM'd - quit immediately
+            _ = quit_receiver.wait_for(Clone::clone) => break,
+        };
 
         // allocate a new runner
         info!("Group {} - allocating a new runner", group.group_id);
@@ -198,7 +236,12 @@ async fn manage_runner_group(
             status.idle += 1;
             status.total += 1;
         });
-        tokio::spawn(spawn_runner(client, config, group));
+        tokio::spawn(spawn_runner(
+            client,
+            config,
+            group,
+            config.idle_counter.clone().into_guard(),
+        ));
     }
 }
 
@@ -240,6 +283,17 @@ async fn main() -> Result<(), ErrorContext> {
     std::fs::create_dir_all(&config.program.log_dir)
         .context("Failed to create the log directory")?;
 
+    // spawn the signal watch task
+    {
+        let sender = config.shutdown_requested.clone();
+        let mut signals =
+            Signals::new([Signal::Int, Signal::Term]).context("Failed to listen for signals")?;
+        tokio::spawn(async move {
+            signals.next().await;
+            sender.send_replace(true);
+        });
+    }
+
     // spawn management tasks for each group
     for group in &*config.groups {
         tokio::spawn(log_runner_group_updates(
@@ -250,9 +304,17 @@ async fn main() -> Result<(), ErrorContext> {
     }
 
     // wait for sigint/sigterm
-    Signals::new([Signal::Int, Signal::Term])
-        .context("Failed to listen for signals")?
-        .next()
-        .await;
+    config
+        .shutdown_requested
+        .subscribe()
+        .wait_for(Clone::clone)
+        .await
+        .context("Error while waiting for exit signal")?;
+    info!("SIGINT/TERM received, waiting for idle runners to quit");
+    config
+        .idle_counter
+        .wait()
+        .await
+        .context("Error while waiting for runners")?;
     Ok(())
 }

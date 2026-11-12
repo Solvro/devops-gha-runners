@@ -34,6 +34,64 @@ pub fn generate_runner_name(config: &GroupConfig) -> RunnerNames {
     }
 }
 
+#[derive(Clone, Default)]
+pub struct Counter {
+    channel: tokio::sync::watch::Sender<usize>,
+}
+
+pub struct CounterGuard {
+    channel: tokio::sync::watch::Sender<usize>,
+    is_counted: bool,
+}
+
+impl Counter {
+    /// Convert this counter into a guard and include it in the count
+    pub fn into_guard(self) -> CounterGuard {
+        let mut guard = CounterGuard {
+            channel: self.channel,
+            is_counted: false,
+        };
+        guard.include();
+        guard
+    }
+
+    pub async fn wait(&self) -> Result<(), tokio::sync::watch::error::RecvError> {
+        self.channel
+            .subscribe()
+            .wait_for(|x| *x == 0)
+            .await
+            .map(|_| ())
+    }
+}
+
+impl CounterGuard {
+    /// Include this guard in the count
+    pub fn include(&mut self) {
+        if self.is_counted {
+            return;
+        }
+        self.channel
+            .send_modify(|x| *x = x.checked_add(1).expect("counter overflow"));
+        self.is_counted = true;
+    }
+
+    /// Exclude this guard from the count
+    pub fn exclude(&mut self) {
+        if !self.is_counted {
+            return;
+        }
+        self.channel
+            .send_modify(|x| *x = x.checked_sub(1).expect("counter underflow"));
+        self.is_counted = false;
+    }
+}
+
+impl Drop for CounterGuard {
+    fn drop(&mut self) {
+        self.exclude();
+    }
+}
+
 pub struct Runner {
     pub process: Child,
     pub ready_signal_pipe: pipe::Receiver,
@@ -172,4 +230,15 @@ pub async fn create_runner(
         process,
         ready_signal_pipe: rx,
     })
+}
+
+pub async fn kill_runner(runner_name: &str) -> Result<(), ErrorContext> {
+    Command::new("podman")
+        .args(["kill", runner_name])
+        .spawn()
+        .context("Failed to spawn the kill command")?
+        .wait()
+        .await
+        .context("Kill command failed")?;
+    Ok(())
 }

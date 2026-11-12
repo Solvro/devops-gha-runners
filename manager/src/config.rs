@@ -8,11 +8,17 @@ use octocrab::{
 };
 use serde::{Deserialize, Deserializer, de::Visitor};
 
+use crate::utils::Counter;
+
 #[derive(Deserialize)]
 pub struct Config {
     pub app: AppConfig,
     pub program: ProgramConfig,
     pub groups: Arc<[GroupConfig]>,
+    #[serde(skip, default)]
+    pub idle_counter: Counter,
+    #[serde(skip, default)]
+    pub shutdown_requested: tokio::sync::watch::Sender<bool>,
 }
 
 #[derive(Deserialize)]
