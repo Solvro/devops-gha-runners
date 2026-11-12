@@ -29,6 +29,7 @@ async fn artificial_delay(start_time: Instant) {
 /// create and manage a runner lifetime
 ///
 /// the caller should increment the runner total and idle counts before calling this function
+#[allow(clippy::too_many_lines)]
 async fn spawn_runner(client: &Octocrab, config: &config::Config, group: &config::GroupConfig) {
     let start_time = Instant::now();
     let runner_name = generate_runner_name(group);
@@ -145,6 +146,31 @@ async fn spawn_runner(client: &Octocrab, config: &config::Config, group: &config
         );
     }
     info!("Runner {} finished a job", runner_name.hostname);
+
+    // runner may have been terminated externally, check if it's been removed from github
+    if client
+        .actions()
+        .get_org_runner(&*config.app.org_name, resp.runner.id)
+        .await
+        .is_ok()
+    {
+        info!(
+            "Runner {} still exists in github after quitting - deleting",
+            runner_name.hostname
+        );
+        // delete
+        if let Err(e) = client
+            .actions()
+            .delete_org_runner(&*config.app.org_name, resp.runner.id)
+            .await
+        {
+            error!(
+                "Failed to delete failed JIT runner {}: {e:?}",
+                runner_name.hostname
+            );
+        }
+    }
+
     artificial_delay(start_time).await;
     group.status.send_modify(|status| {
         status.total -= 1;
