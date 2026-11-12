@@ -68,6 +68,7 @@ async fn spawn_runner(
                 status.idle -= 1;
             });
             // wait like 15s so that we don't end up spamming the github API
+            guard.exclude();
             artificial_delay(start_time).await;
             // mark it as done
             group.status.send_modify(|status| {
@@ -110,6 +111,7 @@ async fn spawn_runner(
                 );
             }
             // wait like 15s so that we don't end up spamming the github API
+            guard.exclude();
             artificial_delay(start_time).await;
             // mark it as done
             group.status.send_modify(|status| {
@@ -122,12 +124,12 @@ async fn spawn_runner(
     info!("Runner {} started", runner_name.hostname);
 
     // wait for the runner to signal to us that it has started a job
+    let mut killed = false;
     {
         let mut buf = [0u8; 256];
         let mut signal_subscriber = config.shutdown_requested.subscribe();
         // we kinda don't care about what the runner sends us
         // all that matters is that it sent *something*
-        let mut should_kill = false;
         select! {
             piperes = runner.ready_signal_pipe.read(&mut buf) => {
                 if let Err(e) = piperes {
@@ -147,21 +149,20 @@ async fn spawn_runner(
                         runner_name.hostname
                     );
                 }
-                should_kill = true;
+                killed = true;
             }
         };
         // drop le pipe (closing it)
         drop(runner.ready_signal_pipe);
-
-        // if we got sigterm'd, kill the runner
-        if should_kill && let Err(e) = kill_runner(&runner_name.hostname).await {
-            warn!("Failed to kill runner {}: {e:?}", runner_name.hostname);
-        }
-        // if we did not get sigterm'd, let this runner keep running in the background should we get
-        // sigterm'd later
-        if !should_kill {
-            guard.exclude();
-        }
+    }
+    // if we got sigterm'd, kill the runner
+    if killed && let Err(e) = kill_runner(&runner_name.hostname).await {
+        warn!("Failed to kill runner {}: {e:?}", runner_name.hostname);
+    }
+    // if we did not get sigterm'd, let this runner keep running in the background should we get
+    // sigterm'd later
+    if !killed {
+        guard.exclude();
     }
     info!("Runner {} picked up a job", runner_name.hostname);
     group.status.send_modify(|status| {
@@ -204,7 +205,9 @@ async fn spawn_runner(
         }
     }
 
-    artificial_delay(start_time).await;
+    if !killed {
+        artificial_delay(start_time).await;
+    }
     group.status.send_modify(|status| {
         status.total -= 1;
     });
