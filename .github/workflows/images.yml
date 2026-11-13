@@ -38,6 +38,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -52,7 +53,7 @@ jobs:
         id: cache-restore
         with:
           path: cache-mounts
-          key: cache-mounts-${{ steps.timestamps.output.date }}
+          key: cache-mounts-${{ steps.timestamps.outputs.date }}
           restore-keys: |
             cache-mounts
 
@@ -154,6 +155,7 @@ jobs:
         env:
           PRIMARY_KEY: ${{ steps.cache-restore.outputs.cache-primary-key }}
           MATCHED_KEY: ${{ steps.cache-restore.outputs.cache-matched-key }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [[ ! -z "$MATCHED_KEY" && "$PRIMARY_KEY" != "$MATCHED_KEY" ]]
           then
