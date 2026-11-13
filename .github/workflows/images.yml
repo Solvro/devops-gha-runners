@@ -102,6 +102,9 @@ jobs:
             # check if we depend on another image
             if BASE_IMAGE="`grep "FROM $IMAGE_NAME" images/$TO_ADD/Dockerfile`"
             then
+              # extract the tag:
+              # FROM ghcr.io/solvro/devops-gha-runners:some-image # some comment
+              #                                       ^----------^
               BASE_IMAGE="${BASE_IMAGE#*:}"
               BASE_IMAGE="${BASE_IMAGE% *}"
               # make sure it is added before us
