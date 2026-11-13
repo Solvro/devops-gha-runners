@@ -62,6 +62,18 @@ jobs:
               "debian-apt": {
                 "target": "/var/lib/apt",
                 "id": "debian-apt"
+              },
+              "nvm-cache": {
+                "target": "/runner/.nvm/.cache",
+                "id": "nvm-cache",
+                "uid": "1000",
+                "gid": "1000"
+              },
+              "npm-cache": {
+                "target": "/runner/.npm",
+                "id": "npm-cache",
+                "uid": "1000",
+                "gid": "1000"
               }
             }
           skip-extraction: ${{ steps.cache.outputs.cache-hit }}

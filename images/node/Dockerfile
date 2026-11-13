@@ -11,9 +11,13 @@ RUN \
 RUN \
   --mount=type=bind,dst=/ctx \
   --mount=type=tmpfs,dst=/tmp \
-  --mount=type=cache,id=nvm-cache,dst=/runner/.nvm/.cache \
-  --mount=type=cache,id=npm-cache,dst=/runner/.npm \
   /ctx/install_nvm.sh
+RUN \
+  --mount=type=bind,dst=/ctx \
+  --mount=type=tmpfs,dst=/tmp \
+  --mount=type=cache,id=nvm-cache,uid=1000,gid=1000,dst=/runner/.nvm/.cache \
+  --mount=type=cache,id=npm-cache,uid=1000,gid=1000,dst=/runner/.npm \
+  /ctx/install_node.sh
 
 # get nvm to always run
 ENV BASH_ENV="/runner/.load_nvm"
