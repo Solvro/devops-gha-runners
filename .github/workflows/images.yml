@@ -66,7 +66,7 @@ jobs:
 
       - name: Build images
         env:
-          RUNNER_VERSION: ${{ needs.fetch_latest_gha.outputs.version }}
+          RUNNER_VERSION: ${{ jobs.fetch_latest_gha.outputs.version }}
         run: |
           IMAGE_NAME="ghcr.io/solvro/devops-gha-runners"
 
