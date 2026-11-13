@@ -87,7 +87,34 @@ jobs:
           # compute the build order for images
           BUILD_ORDER=()
 
-          ## first, list out all images in arbitrary order
+          function queue_image() {
+            local TO_ADD BASE_IMAGE IMAGE
+            TO_ADD=$1
+            # check if we're already in the build queue
+            for IMAGE in "${BUILD_ORDER[@]}"
+            do
+              if [[ "$IMAGE" == "$TO_ADD" ]]
+              then
+                return
+              fi
+            done
+
+            # check if we depend on another image
+            if BASE_IMAGE="`grep "FROM $IMAGE_NAME" images/$TO_ADD/Dockerfile`"
+            then
+              BASE_IMAGE="${BASE_IMAGE#*:}"
+              BASE_IMAGE="${BASE_IMAGE% *}"
+              # make sure it is added before us
+              queue_image "$BASE_IMAGE"
+            fi
+
+            # add ourselves to the queue
+            BUILD_ORDER+=("$TO_ADD")
+          }
+
+          ## go over each image and try to add it
+          ## queue_image will add all dependencies of that image
+          ## but it will also skip adding an image that already exists in the queue
           for IMAGE in images/*
           do
             IMAGE=${IMAGE##*/}
@@ -96,39 +123,7 @@ jobs:
             then
               continue
             fi
-            BUILD_ORDER+=("$IMAGE")
-          done
-
-          ## then, go over each image, check if it depends on another image
-          ## - if it depends on another image, then put it after that image
-          for INSPECTED_IMAGE in "${BUILD_ORDER[@]}"
-          do
-            if ! BASE_IMAGE="`grep "FROM $IMAGE_NAME" images/$INSPECTED_IMAGE/Dockerfile`"
-            then
-              # no dependency on runner images, order irrelevant
-              continue
-            fi
-            # extract the tag:
-            # FROM ghcr.io/solvro/devops-gha-runners:some-image # some comment
-            #                                       ^----------^
-            BASE_IMAGE="${BASE_IMAGE#*:}"
-            BASE_IMAGE="${BASE_IMAGE% *}"
-
-            # copy the array, skipping the image and inserting it right after the base
-            NEW_ORDER=()
-            for ITER_IMAGE in "${BUILD_ORDER[@]}"
-            do
-              if [[ "$ITER_IMAGE" == "$INSPECTED_IMAGE" ]]
-              then
-                continue
-              fi
-              NEW_ORDER+=("$ITER_IMAGE")
-              if [[ "$ITER_IMAGE" == "$BASE_IMAGE" ]]
-              then
-                NEW_ORDER+=("$INSPECTED_IMAGE")
-              fi
-            done
-            BUILD_ORDER=("${NEW_ORDER[@]}")
+            queue_image "$IMAGE"
           done
           echo "Image build order:" "${BUILD_ORDER[@]}"
 
