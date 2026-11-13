@@ -43,17 +43,16 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Get docker caches
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         id: cache
         with:
           path: cache-mounts
           key: cache-mounts
 
       - name: Restore docker cache mounts
-        uses: reproducible-containers/buildkit-cache-dance@v3
-        with:
-          cache-dir: cache-mounts
-          cache-map: |
+        run: |
+          curl --fail -Lo cache-dance.js https://raw.githubusercontent.com/reproducible-containers/buildkit-cache-dance/refs/tags/v3/dist/index.js
+          cat > cache-map.json <<EOF
             {
               "debian-cache": {
                 "target": "/var/cache",
@@ -76,7 +75,8 @@ jobs:
                 "gid": "1000"
               }
             }
-          save-always: true
+          EOF
+          node cache-dance.js --cache-dir cache-mounts --cache-map "`cat cache-map.json`"
 
       - name: Build images
         env:
@@ -147,3 +147,14 @@ jobs:
         run: |
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$USER" --password-stdin
           docker image push --all-tags ghcr.io/solvro/devops-gha-runners
+
+      - name: Extract docker cache
+        run: |
+          node cache-dance.js --cache-dir cache-mounts --cache-map "`cat cache-map.json`" --extract
+
+      - name: Save docker caches
+        uses: actions/cache/save@v6
+        id: cache
+        with:
+          path: cache-mounts
+          key: cache-mounts
