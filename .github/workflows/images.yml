@@ -75,7 +75,10 @@ jobs:
               }
             }
           EOF
-          node cache-dance.js --cache-dir cache-mounts --cache-map "`cat cache-map.json`"
+          mkdir -p cache-mounts
+          cd cache-mounts
+          node ../cache-dance.js --cache-dir cache-mounts --cache-map "`cat cache-map.json`"
+          cd ..
 
       - name: Build images
         env:
@@ -149,8 +152,11 @@ jobs:
 
       - name: Extract docker cache
         run: |
-          node cache-dance.js --cache-dir cache-mounts --cache-map "`cat cache-map.json`" --extract
-          ls -la cache-mounts
+          mkdir -p cache-mounts
+          cd cache-mounts
+          node ../cache-dance.js --cache-map "`cat cache-map.json`" --extract
+          ls -la
+          cd ..
 
       - name: Save docker caches
         uses: actions/cache/save@v6
