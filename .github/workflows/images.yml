@@ -44,7 +44,6 @@ jobs:
 
       - name: Get docker caches
         uses: actions/cache/restore@v6
-        id: cache
         with:
           path: cache-mounts
           key: cache-mounts
@@ -154,7 +153,6 @@ jobs:
 
       - name: Save docker caches
         uses: actions/cache/save@v6
-        id: cache
         with:
           path: cache-mounts
           key: cache-mounts
