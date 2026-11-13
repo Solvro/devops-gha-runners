@@ -1,0 +1,100 @@
+name: Runner images
+
+on:
+  push:
+    paths:
+      - "images/**"
+      - ".github/workflows/images.yml"
+    branches-ignore: ["gh-readonly-queue/**"]
+  pull_request:
+  merge_group:
+  schedule:
+    - cron: "0 0 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  fetch_latest_gha:
+    name: Fetch latest actions/runner release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch release
+        id: fetch
+        run: |
+          curl --fail -o release.json https://api.github.com/repos/actions/runner/releases/latest
+          jq -r '"version=" + .tag_name' release.json >> "$GITHUB_OUTPUT"
+          jq -r '"is_recent=" + (now - (.updated_at | fromdateiso8601) < 24*60*60 | tostring)' release.json >> "$GITHUB_OUTPUT"
+    outputs:
+      version: ${{ steps.fetch.version }}
+      is_recent: ${{ steps.fetch.is_recent }}
+  build_images:
+    name: Build runner images
+    needs: [fetch_latest_gha]
+    if: github.event_name != "schedule" || jobs.fetch_latest_gha.outputs.is_recent == "true"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Get docker caches
+        uses: actions/cache@v6
+        id: cache
+        with:
+          path: cache-mounts
+          key: cache-mounts
+
+      - name: Restore docker cache mounts
+        uses: reproducible-containers/buildkit-cache-dance@v3
+        with:
+          cache-dir: cache-mounts
+          cache-map: |
+            {
+              "debian-cache": {
+                "target": "/var/cache",
+                "id": "debian-cache"
+              },
+              "debian-apt": {
+                "target": "/var/lib/apt",
+                "id": "debian-apt"
+              }
+            }
+          skip-extraction: ${{ steps.cache.outputs.cache-hit }}
+
+      - name: Build images
+        env:
+          RUNNER_VERSION: ${{ jobs.fetch_latest.outputs.version }}
+        run: |
+          IMAGE_NAME="ghcr.io/solvro/devops-gha-runners"
+
+          # build base first
+          echo "::group::Building images/base"
+          docker build -t "$IMAGE_NAME:base" -t "$IMAGE_NAME:base-$RUNNER_VERSION" images/base
+          echo "::endgroup::"
+
+          # then build all other images
+          for image in images/*
+          do
+            # skip non-dirs and the base image
+            if [[ "$image" == "images/base" || ! -d "$image" ]]
+            then
+              continue
+            fi
+
+            # builden machen
+            echo "::group::Building $image"
+            docker build -t "$IMAGE_NAME:${image##*/}" -t "$IMAGE_NAME:${image##*/}-$RUNNER_VERSION" "$image"
+            echo "::endgroup::"
+          done
+
+      - name: Publish images
+        if: github.event_name == "push" && github.ref == "refs/heads/main"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USER: ${{ github.actor }}
+        run: |
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$USER" --password-stdin
+          docker image push --all-tags ghcr.io/solvro-devops-gha-runners
