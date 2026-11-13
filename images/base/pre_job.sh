@@ -1,2 +1,2 @@
 #!/bin/bash
-echo a >&4
+echo a >&4 || true
