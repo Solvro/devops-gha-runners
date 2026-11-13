@@ -25,6 +25,7 @@ jobs:
           curl --fail -o release.json https://api.github.com/repos/actions/runner/releases/latest
           jq -r '"version=" + .tag_name' release.json >> "$GITHUB_OUTPUT"
           jq -r '"is_recent=" + (now - (.updated_at | fromdateiso8601) < 24*60*60 | tostring)' release.json >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
     outputs:
       version: ${{ steps.fetch.version }}
       is_recent: ${{ steps.fetch.is_recent }}
@@ -66,7 +67,7 @@ jobs:
 
       - name: Build images
         env:
-          RUNNER_VERSION: ${{ jobs.fetch_latest_gha.outputs.version }}
+          RUNNER_VERSION: ${{ needs.fetch_latest_gha.outputs.version }}
         run: |
           IMAGE_NAME="ghcr.io/solvro/devops-gha-runners"
 
