@@ -12,7 +12,7 @@ RUN \
 RUN \
   --mount=type=bind,dst=/ctx \
   --mount=type=tmpfs,dst=/tmp \
-  /ctx/install_runner.sh
+  RUNNER_VERSION="$RUNNER_VERSION" /ctx/install_runner.sh
 
 WORKDIR /runner
 USER runner:runner

@@ -72,7 +72,7 @@ jobs:
 
           # build base first
           echo "::group::Building images/base"
-          docker build -t "$IMAGE_NAME:base" -t "$IMAGE_NAME:base-$RUNNER_VERSION" --build-arg "RUNNER_VERSION=$RUNNER_VERSION" images/base
+          docker build -t "$IMAGE_NAME:base" -t "$IMAGE_NAME:base-$RUNNER_VERSION" --build-arg RUNNER_VERSION images/base
           echo "::endgroup::"
 
           # then build all other images
