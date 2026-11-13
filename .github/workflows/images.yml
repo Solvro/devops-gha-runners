@@ -121,7 +121,7 @@ jobs:
           echo "Image build order:" "${BUILD_ORDER[@]}"
 
           # then build all images
-          for IMAGE in "$BUILD_ORDER[@]"
+          for IMAGE in "${BUILD_ORDER[@]}"
           do
             # builden machen
             echo "::group::Building $IMAGE"
