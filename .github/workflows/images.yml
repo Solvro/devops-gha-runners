@@ -52,7 +52,7 @@ jobs:
         run: |
           curl --fail -Lo cache-dance.js https://raw.githubusercontent.com/reproducible-containers/buildkit-cache-dance/refs/tags/v3/dist/index.js
           # generate the cache map
-          grep -h -- "--mount=type=cache," images/*/Dockerfile | jq -Rsr 'trim | split("\n") | map(gsub("^\\s*--mount=type=cache,|\\s*\\\\$"; "") | split(",") | map(split("=") | {"key": .[0], "value": .[1]}) | from_entries | {"key": .id, "value": .}) | from_entries' > cache-map.json
+          grep -h -- "--mount=type=cache," images/*/Dockerfile | jq -Rsr 'trim | split("\n") | map(gsub("^\\s*--mount=type=cache,|\\s*\\\\$"; "") | split(",") | map(split("=") | {"key": if .[0] == "dst" then "target" else .[0] end, "value": .[1]}) | from_entries | {"key": .id, "value": .}) | from_entries' > cache-map.json
           mkdir -p cache-mounts
           cd cache-mounts
           node ../cache-dance.js --cache-dir cache-mounts --cache-map "`cat ../cache-map.json`"
