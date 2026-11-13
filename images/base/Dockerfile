@@ -7,7 +7,7 @@ RUN \
   --mount=type=bind,dst=/ctx \
   --mount=type=tmpfs,dst=/tmp \
   --mount=type=cache,id=debian-cache,dst=/var/cache \
-  --mount=type=cache,id=debian-lists,dst=/var/lib/apt/lists \
+  --mount=type=cache,id=debian-apt,dst=/var/lib/apt \
   /ctx/install_packages.sh
 RUN \
   --mount=type=bind,dst=/ctx \
