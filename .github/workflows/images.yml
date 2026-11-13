@@ -76,7 +76,7 @@ jobs:
                 "gid": "1000"
               }
             }
-          skip-extraction: ${{ steps.cache.outputs.cache-hit }}
+          save-always: true
 
       - name: Build images
         env:
