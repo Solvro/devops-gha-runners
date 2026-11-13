@@ -71,28 +71,65 @@ jobs:
         run: |
           IMAGE_NAME="ghcr.io/solvro/devops-gha-runners"
 
-          # build base first
-          echo "::group::Building images/base"
-          docker build -t "$IMAGE_NAME:base" -t "$IMAGE_NAME:base-$RUNNER_VERSION" --build-arg RUNNER_VERSION images/base
-          echo "::endgroup::"
+          # compute the build order for images
+          BUILD_ORDER=()
 
-          # then build all other images
-          for image in images/*
+          ## first, list out all images in arbitrary order
+          for IMAGE in images/*
           do
-            # skip non-dirs and the base image
-            if [[ "$image" == "images/base" || ! -d "$image" ]]
+            IMAGE=${IMAGE##*/}
+            # make sure the "image" is actually an image
+            if [[ ! -d "images/$IMAGE" || ! -f "images/$IMAGE/Dockerfile" ]]
             then
               continue
             fi
+            BUILD_ORDER+=("$IMAGE")
+          done
 
+          ## then, go over each image, check if it depends on another image
+          ## - if it depends on another image, then put it after that image
+          for INSPECTED_IMAGE in "${BUILD_ORDER[@]}"
+          do
+            if ! BASE_IMAGE="`grep "FROM $IMAGE_NAME" images/$INSPECTED_IMAGE/Dockerfile`"
+            then
+              # no dependency on runner images, order irrelevant
+              continue
+            fi
+            # extract the tag:
+            # FROM ghcr.io/solvro/devops-gha-runners:some-image # some comment
+            #                                       ^----------^
+            BASE_IMAGE="${BASE_IMAGE#*:}"
+            BASE_IMAGE="${BASE_IMAGE% *}"
+
+            # copy the array, skipping the image and inserting it right after the base
+            NEW_ORDER=()
+            for ITER_IMAGE in "${BUILD_ORDER[@]}"
+            do
+              if [[ "$ITER_IMAGE" == "$INSPECTED_IMAGE" ]]
+              then
+                continue
+              fi
+              NEW_ORDER+=("$ITER_IMAGE")
+              if [[ "$ITER_IMAGE" == "$BASE_IMAGE" ]]
+              then
+                NEW_ORDER+=("$INSPECTED_IMAGE")
+              fi
+            done
+            BUILD_ORDER=("${NEW_ORDER[@]}")
+          done
+          echo "Image build order:" "${BUILD_ORDER[@]}"
+
+          # then build all images
+          for IMAGE in "$BUILD_ORDER[@]"
+          do
             # builden machen
-            echo "::group::Building $image"
-            docker build -t "$IMAGE_NAME:${image##*/}" -t "$IMAGE_NAME:${image##*/}-$RUNNER_VERSION" "$image"
+            echo "::group::Building $IMAGE"
+            docker build -t "$IMAGE_NAME:$IMAGE" -t "$IMAGE_NAME:$IMAGE-$RUNNER_VERSION" --build-arg RUNNER_VERSION "images/$IMAGE"
             echo "::endgroup::"
           done
 
       - name: Publish images
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ( github.event_name == 'push' && github.ref == 'refs/heads/main' ) || github.event_name == 'schedule'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USER: ${{ github.actor }}
