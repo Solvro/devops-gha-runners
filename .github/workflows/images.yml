@@ -98,4 +98,4 @@ jobs:
           USER: ${{ github.actor }}
         run: |
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$USER" --password-stdin
-          docker image push --all-tags ghcr.io/solvro-devops-gha-runners
+          docker image push --all-tags ghcr.io/solvro/devops-gha-runners
