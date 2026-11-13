@@ -77,7 +77,7 @@ jobs:
           EOF
           mkdir -p cache-mounts
           cd cache-mounts
-          node ../cache-dance.js --cache-dir cache-mounts --cache-map "`cat cache-map.json`"
+          node ../cache-dance.js --cache-dir cache-mounts --cache-map "`cat ../cache-map.json`"
           cd ..
 
       - name: Build images
@@ -154,7 +154,7 @@ jobs:
         run: |
           mkdir -p cache-mounts
           cd cache-mounts
-          node ../cache-dance.js --cache-map "`cat cache-map.json`" --extract
+          node ../cache-dance.js --cache-map "`cat ../cache-map.json`" --extract
           ls -la
           cd ..
 
