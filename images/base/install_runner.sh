@@ -2,7 +2,7 @@
 set -xeuo pipefail
 
 # fetch release
-curl -o /tmp/release.json "https://api.github.com/repos/actions/runner/releases/tags/$RUNNER_VERSION"
+curl --fail -o /tmp/release.json "https://api.github.com/repos/actions/runner/releases/tags/$RUNNER_VERSION"
 jq '.assets | map(select(.name | startswith("actions-runner-linux-x64-")))[0] | {hash: .digest | ltrimstr("sha256:"), url: .browser_download_url}' /tmp/release.json > /tmp/asset.json
 RUNNER_HASH="`jq -r '.hash' /tmp/asset.json`"
 RUNNER_URL="`jq -r '.url' /tmp/asset.json`"
