@@ -31,7 +31,7 @@ jobs:
   build_images:
     name: Build runner images
     needs: [fetch_latest_gha]
-    if: ${{ github.event_name != "schedule" || needs.fetch_latest_gha.outputs.is_recent == "true" }}
+    if: github.event_name != 'schedule' || needs.fetch_latest_gha.outputs.is_recent == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -91,7 +91,7 @@ jobs:
           done
 
       - name: Publish images
-        if: ${{ github.event_name == "push" && github.ref == "refs/heads/main" }}
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USER: ${{ github.actor }}
