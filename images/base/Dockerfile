@@ -1,6 +1,5 @@
 FROM docker.io/library/debian:stable
 ARG RUNNER_VERSION
-ENV RUNNER_VERSION=$RUNNER_VERSION
 
 # install packages separately from runner so that we can unmount the apt cache for the runner step
 # just in case someone decides to run malware in the runner install step that could poison the cache
