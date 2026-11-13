@@ -13,4 +13,5 @@ chmod +x /tmp/nvm-install.sh
 touch /runner/.load_nvm
 sed -ie 's/curl -q/curl/g' /tmp/nvm-install.sh
 PROFILE=/runner/.load_nvm /tmp/nvm-install.sh
-echo ". /runner/.load_nvm" >> /runner/.bashprofile
+echo ". /runner/.load_nvm" >> /runner/.bash_profile
+echo ". /runner/.load_nvm" >> /runner/.profile
