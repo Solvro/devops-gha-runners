@@ -3,7 +3,7 @@ set -xeuo pipefail
 # packages
 apt-get update
 apt-get upgrade -y
-apt-get install -y curl jq liblttng-ust1t64 libkrb5-3 zlib1g libssl3t64 libicu76
+apt-get install -y curl jq liblttng-ust1t64 libkrb5-3 zlib1g libssl3t64 libicu76 sudo
 apt-get clean
 
 # fetch release
@@ -28,3 +28,4 @@ useradd -u 1000 -g 1000 -s /bin/bash -d /runner runner
 mkdir /runner
 chown runner:runner /runner
 chown -R runner:runner /opt/gha
+echo "runner ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/runner
