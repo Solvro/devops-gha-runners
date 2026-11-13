@@ -27,8 +27,8 @@ jobs:
           jq -r '"is_recent=" + (now - (.updated_at | fromdateiso8601) < 24*60*60 | tostring)' release.json >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
     outputs:
-      version: ${{ steps.fetch.version }}
-      is_recent: ${{ steps.fetch.is_recent }}
+      version: ${{ steps.fetch.outputs.version }}
+      is_recent: ${{ steps.fetch.outputs.is_recent }}
   build_images:
     name: Build runner images
     needs: [fetch_latest_gha]
