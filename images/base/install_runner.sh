@@ -1,10 +1,5 @@
 #!/bin/bash
 set -xeuo pipefail
-# packages
-apt-get update
-apt-get upgrade -y
-apt-get install -y curl jq liblttng-ust1t64 libkrb5-3 zlib1g libssl3t64 libicu76 sudo
-apt-get clean
 
 # fetch release
 curl -o /tmp/release.json "https://api.github.com/repos/actions/runner/releases/tags/$RUNNER_VERSION"
