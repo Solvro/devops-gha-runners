@@ -42,11 +42,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Get timestamps
+        id: timestamps
+        run: |
+          echo "date=`date -u "+%Y%m%d-%H%M%S"`" >> "$GITHUB_OUTPUT"
+
       - name: Get docker caches
         uses: actions/cache/restore@v6
+        id: cache-restore
         with:
           path: cache-mounts
-          key: cache-mounts
+          key: cache-mounts-${{ steps.timestamps.output.date }}
+          restore-keys: |
+            cache-mounts
 
       - name: Restore docker cache mounts
         run: |
@@ -137,6 +145,17 @@ jobs:
 
       - name: Save docker caches
         uses: actions/cache/save@v6
+        id: cache-save
         with:
           path: cache-mounts
-          key: cache-mounts
+          key: ${{ steps.cache-restore.outputs.cache-primary-key }}
+
+      - name: Delete old cache entry
+        env:
+          PRIMARY_KEY: ${{ steps.cache-restore.outputs.cache-primary-key }}
+          MATCHED_KEY: ${{ steps.cache-restore.outputs.cache-matched-key }}
+        run: |
+          if [[ ! -z "$MATCHED_KEY" && "$PRIMARY_KEY" != "$MATCHED_KEY" ]]
+          then
+          gh cache delete "$MATCHED_KEY" || true
+          fi
