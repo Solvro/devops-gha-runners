@@ -150,6 +150,7 @@ jobs:
       - name: Extract docker cache
         run: |
           node cache-dance.js --cache-dir cache-mounts --cache-map "`cat cache-map.json`" --extract
+          ls -la cache-mounts
 
       - name: Save docker caches
         uses: actions/cache/save@v6
