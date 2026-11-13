@@ -156,15 +156,18 @@ async fn spawn_runner(
         drop(runner.ready_signal_pipe);
     }
     // if we got sigterm'd, kill the runner
-    if killed && let Err(e) = kill_runner(&runner_name.hostname).await {
-        warn!("Failed to kill runner {}: {e:?}", runner_name.hostname);
-    }
-    // if we did not get sigterm'd, let this runner keep running in the background should we get
-    // sigterm'd later
-    if !killed {
+    if killed {
+        if let Err(e) = kill_runner(&runner_name.hostname).await {
+            warn!("Failed to kill runner {}: {e:?}", runner_name.hostname);
+        } else {
+            info!("Runner {} killed", runner_name.hostname);
+        }
+    } else {
+        info!("Runner {} picked up a job", runner_name.hostname);
+        // if we did not get sigterm'd, let this runner keep running in the background should we get
+        // sigterm'd later
         guard.exclude();
     }
-    info!("Runner {} picked up a job", runner_name.hostname);
     group.status.send_modify(|status| {
         status.idle -= 1;
     });
