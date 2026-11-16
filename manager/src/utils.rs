@@ -241,7 +241,7 @@ pub async fn kill_runner(runner_name: &str) -> Result<(), ErrorContext> {
         .await
         .context("Kill command failed")?;
     if !status.success() {
-        bail!("Kill command exited with code {status}",)
+        bail!("Kill command exited with code {status}",);
     }
     Ok(())
 }
