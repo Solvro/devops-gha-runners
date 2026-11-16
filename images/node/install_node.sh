@@ -8,6 +8,9 @@ nvm install 24
 nvm install 26
 nvm alias default 26
 
+# force nvm to use the version under the default alias for each step
+echo "nvm use --silent default" >> /runner/.load_nvm
+
 # update all the package manager versions, install pnpm in all versions
 for VERSION in 22 24 26
 do
