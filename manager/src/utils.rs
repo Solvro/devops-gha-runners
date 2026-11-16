@@ -4,7 +4,7 @@ use std::{
 };
 
 use chrono::Utc;
-use cloneable_errors::{ErrorContext, ResContext};
+use cloneable_errors::{ErrorContext, ResContext, bail};
 use tokio::{
     fs::File,
     io::AsyncWriteExt,
@@ -233,12 +233,15 @@ pub async fn create_runner(
 }
 
 pub async fn kill_runner(runner_name: &str) -> Result<(), ErrorContext> {
-    Command::new("podman")
+    let status = Command::new("podman")
         .args(["stop", "-t", "1", runner_name])
         .spawn()
         .context("Failed to spawn the kill command")?
         .wait()
         .await
         .context("Kill command failed")?;
+    if !status.success() {
+        bail!("Kill command exited with code {status}",)
+    }
     Ok(())
 }
