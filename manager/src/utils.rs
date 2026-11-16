@@ -234,7 +234,7 @@ pub async fn create_runner(
 
 pub async fn kill_runner(runner_name: &str) -> Result<(), ErrorContext> {
     Command::new("podman")
-        .args(["kill", runner_name])
+        .args(["stop", "-t", "1", runner_name])
         .spawn()
         .context("Failed to spawn the kill command")?
         .wait()
