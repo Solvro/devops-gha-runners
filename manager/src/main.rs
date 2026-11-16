@@ -157,10 +157,14 @@ async fn spawn_runner(
     }
     // if we got sigterm'd, kill the runner
     if killed {
-        if let Err(e) = kill_runner(&runner_name.hostname).await {
-            warn!("Failed to kill runner {}: {e:?}", runner_name.hostname);
-        } else {
-            info!("Runner {} killed", runner_name.hostname);
+        // retry the kill command, cuz apparently it itself sometimes gets SIGTERM'd?
+        for _ in 0..3 {
+            if let Err(e) = kill_runner(&runner_name.hostname).await {
+                warn!("Failed to kill runner {}: {e:?}", runner_name.hostname);
+            } else {
+                info!("Runner {} killed", runner_name.hostname);
+                break;
+            }
         }
     } else {
         info!("Runner {} picked up a job", runner_name.hostname);
