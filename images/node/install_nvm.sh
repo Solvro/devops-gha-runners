@@ -15,3 +15,6 @@ sed -ie 's/curl -q/curl/g' /tmp/nvm-install.sh
 PROFILE=/runner/.load_nvm /tmp/nvm-install.sh
 echo ". /runner/.load_nvm" >> /runner/.bash_profile
 echo ". /runner/.load_nvm" >> /runner/.profile
+
+# force nvm to use the version under the default alias for each step
+echo "nvm use --silent default" >> /runner/.load_nvm
